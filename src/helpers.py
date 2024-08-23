@@ -21,7 +21,7 @@ class DocumentProcessor:
         )
     def load_split_pdf(self, file_path):
         pdf_loader = PyPDFLoader(file_path)
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+        text_splitter = CharacterTextSplitter(chunk_size=300, chunk_overlap=50)
         docs = text_splitter.split_documents(pdf_loader.load())
         return docs
     def create_and_save_db(self, docs):
@@ -34,42 +34,16 @@ class DocumentProcessor:
     
 
 # processer=DocumentProcessor()
-# # docs=processer.load_split_pdf("Hamburg2.pdf")
+# # docs=processer.load_split_pdf("hausordnung.pdf")
+
+# # processer.create_and_save_db(docs)
+
 # db=processer.load_db()
-# query = "What did the president say about Ketanji Brown Jackson"
+# query = "gibt es mülltrennung"
+ 
 
-
-# docs = db.similarity_search(query)
-# print(docs[0].page_content)
+#  docs = db.similarity_search(query)
+# print(docs)
+# #print(docs[0].page_content)
 
     
-
-# def load_pdf(uploaded_file):
-#     """Load the PDF document and extract the text."""
-#     pdf_loader = PyPDFLoader(uploaded_file)
-#     return pdf_loader.load()
-# documents = load_pdf("Hamburg2.pdf")
-# #documents = loader.load()
-# text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-# docs = text_splitter.split_documents(documents)
-# embedding = AzureOpenAIEmbeddings(
-#             chunk_size=16,
-#             azure_deployment=AZURE_DEPLOYMENT_EMB,
-#             azure_endpoint=AZURE_OPENAI_ENDPOINT,
-#             api_key=AZURE_OPENAI_API_KEY
-#         )
-# db = FAISS.from_documents(docs, embedding)
-# # print(db.index.ntotal)
-# # query = "What did the president say about Ketanji Brown Jackson"
-# # # docs = db.similarity_search(query)
-# # # print(docs[0].page_content)
-
-# db.save_local("faiss_index")
-
-
-
-
-# new_db = FAISS.load_local("faiss_index", embedding, allow_dangerous_deserialization=True)
-
-# docs = new_db.similarity_search(query)
-# print(docs[0].page_content)

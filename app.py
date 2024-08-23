@@ -4,7 +4,9 @@ from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from streamlit_pills import pills
+from src.helpers import DocumentProcessor
 import os
+import tempfile
 #from src.helpers import get_similar_docs, format_as_context
 import psycopg2
 
@@ -25,7 +27,7 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 #connection_string = f'postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_DATABASE}'
 #db_connection = psycopg2.connect(connection_string)
 llm=ChatOllama(model="llama3", temperature=0)
-
+processor=DocumentProcessor()
 
 def get_response(user_query, chat_history, llm):
     """Generates a response to a user query using the Ollama Llama3 model, considering the chat history and relevant context.
@@ -61,13 +63,14 @@ def get_response(user_query, chat_history, llm):
     prompt = ChatPromptTemplate.from_template(template)
     # context = get_similar_docs(user_query, conn=db_connection, threshold=0.75, n=1)
     # context = format_as_context(context)
-
+    docs=db.similarity_search(user_query, k=1)
+    context = "\n".join([doc.page_content for doc in docs]) if docs else "No relevant context found."
     chain = prompt | llm | StrOutputParser()
    
     return chain.stream({
         "chat_history": chat_history,
         "user_question": user_query,
-        "context": "the number is 6"
+        "context": context
         })
 
 
@@ -80,12 +83,23 @@ if "chat_history" not in st.session_state:
 if "file_uploaded" not in st.session_state:
     st.session_state.file_uploaded = False
 
+if "db" not in st.session_state:
+    st.session_state.db = None
+
 # Show the file uploader if no file has been uploaded yet
 if not st.session_state.file_uploaded:
     st.title("🏠 Upload your PDF to proceed!")
     uploaded_file = st.file_uploader("Upload your PDF", accept_multiple_files=False, label_visibility="hidden")
     if uploaded_file:
         st.session_state.file_uploaded = True
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+            temp_file.write(uploaded_file.read())
+            temp_file_path = temp_file.name
+        #print(temp_file_path)
+        docs=processor.load_split_pdf(temp_file_path)
+        print(docs)
+        processor.create_and_save_db(docs)
+        st.session_state.db = processor.load_db()
         st.session_state.uploaded_file = uploaded_file
         st.rerun()  # Rerun the app to hide the uploader
 
@@ -94,6 +108,13 @@ if st.session_state.file_uploaded:
 
     # Display the uploaded file name (optional)
     st.write(f"Uploaded file: {st.session_state.uploaded_file.name}")
+    for message in st.session_state.chat_history:
+        if isinstance(message, HumanMessage):
+            with st.chat_message("Human"):
+                st.markdown(message.content)
+        elif isinstance(message, AIMessage):
+            with st.chat_message("AI"):
+                st.markdown(message.content)
 
     # User input
     user_query = st.chat_input("How can I help?")
@@ -117,9 +138,10 @@ if st.session_state.file_uploaded:
         with st.chat_message("Human"):
             st.markdown(user_query)
         with st.chat_message("AI"):
+            db = st.session_state.db
             response = st.write_stream(get_response(user_query, st.session_state.chat_history, llm))
 
-        st.session_state.chat_history.append(AIMessage(content=response))
+            st.session_state.chat_history.append(AIMessage(content=response))
 
         if "selected" in st.session_state:
             del st.session_state.selected
